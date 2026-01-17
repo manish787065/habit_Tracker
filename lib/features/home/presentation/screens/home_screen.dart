@@ -18,6 +18,13 @@ import '../widgets/todays_thought_widget.dart';
 import '../../../todo/presentation/widgets/todo_widget.dart';
 import '../../../pomodoro/presentation/widgets/pomodoro_widget.dart';
 import '../../../social/presentation/screens/challenge_screen.dart';
+import '../../../gamification/presentation/widgets/point_listener_wrapper.dart';
+import '../widgets/yearly_consistency_graph.dart';
+import '../widgets/quick_access_bar.dart';
+import 'habits_screen.dart';
+import 'study_timer_screen.dart';
+import 'pomodoro_screen.dart';
+import 'todo_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -79,22 +86,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         extendBody: true, // Allow body to go behind bottom nav
-        body: Stack(
-          children: [
-            pages[selectedIndex],
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                height: (_isNavVisible && MediaQuery.of(context).viewInsets.bottom == 0) ? 80 + MediaQuery.of(context).padding.bottom : 0,
-                child: Wrap(
-                  children: [_buildBottomNav(selectedIndex)],
+      body: PointListenerWrapper(
+          child: Stack(
+            children: [
+              pages[selectedIndex],
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  height: (_isNavVisible && MediaQuery.of(context).viewInsets.bottom == 0) ? 80 + MediaQuery.of(context).padding.bottom : 0,
+                  child: Wrap(
+                    children: [_buildBottomNav(selectedIndex)],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -170,6 +179,7 @@ class DashboardView extends ConsumerWidget {
   const DashboardView({super.key, this.scrollController});
 
   @override
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     return SafeArea(
       bottom: false, 
@@ -180,27 +190,27 @@ class DashboardView extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context, ref),
-            const SizedBox(height: 32), // More spacing
-            const DayCounterWidget(),
             const SizedBox(height: 24),
-            const TodoWidget(),
-            const SizedBox(height: 32),
+            
+            // "Explore" Quick Access Bar moved to top
             Text(
-              "Your Habits",
+              "Explore",
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
                   ),
             ),
             const SizedBox(height: 16),
-            const HabitListWidget(),
-            const SizedBox(height: 24),
-            const PomodoroWidget(),
-            const SizedBox(height: 24),
-            const StudyHoursWidget(),
+            QuickAccessBar(
+              onCategorySelected: (category) => _handleCategoryNavigation(context, category),
+            ),
+            
+            const SizedBox(height: 32), 
+            const DayCounterWidget(),
             const SizedBox(height: 16),
-            _buildChallengeCard(context),
+            const YearlyConsistencyGraph(),
             const SizedBox(height: 24),
+            
             const TodaysThoughtWidget(),
             const SizedBox(height: 24),
             const DailyRatingWidget(),
@@ -208,6 +218,34 @@ class DashboardView extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _handleCategoryNavigation(BuildContext context, String category) {
+    Widget? screen;
+    switch (category) {
+      case "Pomodoro":
+        screen = const PomodoroScreen();
+        break;
+      case "Habits":
+        screen = const HabitsScreen();
+        break;
+      case "Study":
+        screen = const StudyTimerScreen();
+        break;
+      case "Awards": // Mapped 'Awards' to Challenges/Profile for now, or ChallengeScreen
+        screen = const ChallengeScreen();
+        break;
+      case "Tasks":
+         screen = const TodoScreen();
+         break;
+      default:
+        // 'All' or others
+        break;
+    }
+    
+    if (screen != null) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen!));
+    }
   }
 
   Widget _buildChallengeCard(BuildContext context) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../providers/pomodoro_provider.dart';
+import '../screens/pomodoro_focus_screen.dart';
 import 'dart:ui';
 
 class PomodoroWidget extends ConsumerWidget {
@@ -133,11 +134,13 @@ class PomodoroWidget extends ConsumerWidget {
               // Controls
               GestureDetector(
                 onTap: () {
-                  if (state.isRunning) {
-                     ref.read(pomodoroProvider.notifier).pauseTimer();
-                  } else {
+                  if (!state.isRunning) {
                      ref.read(pomodoroProvider.notifier).startTimer();
                   }
+                  // Always navigate to focus screen
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PomodoroFocusScreen())
+                  );
                 },
                 child: Container(
                   width: 64,
@@ -154,7 +157,7 @@ class PomodoroWidget extends ConsumerWidget {
                     ],
                   ),
                   child: Icon(
-                    state.isRunning ? Icons.pause : Icons.play_arrow,
+                    state.isRunning ? Icons.visibility : Icons.play_arrow,
                     color: Colors.white,
                     size: 32,
                   ),

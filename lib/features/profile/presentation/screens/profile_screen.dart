@@ -7,6 +7,8 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/logic/badge_logic.dart';
 import '../../../home/presentation/providers/study_hours_provider.dart';
 import '../../../habits/presentation/providers/habit_provider.dart';
+import '../../../gamification/domain/gamification_types.dart';
+import '../../../gamification/presentation/providers/gamification_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -164,6 +166,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 underline: const SizedBox(),
                 items: ["English", "Spanish", "Hindi"].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (val) {}, // Mock
+              ),
+            ),
+             _buildSettingTile(
+              context,
+              "Reward Theme",
+              trailing: Consumer(
+                builder: (context, ref, _) {
+                  final currentTheme = ref.watch(gamificationProvider);
+                  return DropdownButton<GamificationTheme>(
+                    value: currentTheme,
+                    dropdownColor: Theme.of(context).cardTheme.color,
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                    underline: const SizedBox(),
+                    items: GamificationTheme.values.map((theme) => DropdownMenuItem(
+                      value: theme, 
+                      child: Text("${theme.emoji} ${theme.displayName}"),
+                    )).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        ref.read(gamificationProvider.notifier).setTheme(val);
+                      }
+                    },
+                  );
+                }
               ),
             ),
              _buildSettingTile(

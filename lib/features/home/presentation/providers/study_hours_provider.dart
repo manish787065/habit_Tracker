@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/data/hive_helper.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
 class StudyState {
   final double totalSeconds;
@@ -20,8 +21,9 @@ class StudyState {
 
 class StudyHoursNotifier extends StateNotifier<StudyState> {
   Timer? _timer;
+  final Ref ref;
 
-  StudyHoursNotifier() : super(StudyState(totalSeconds: 0, isTimerRunning: false)) {
+  StudyHoursNotifier(this.ref) : super(StudyState(totalSeconds: 0, isTimerRunning: false)) {
     _loadTodayHours();
   }
 
@@ -47,11 +49,18 @@ class StudyHoursNotifier extends StateNotifier<StudyState> {
   }
 
   void startTimer() {
-    if (state.isTimerRunning) return;
+    if (state.isTimerRunning) return; // Changed from state.isRunning to state.isTimerRunning for syntactic correctness
     state = state.copyWith(isTimerRunning: true);
     
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      state = state.copyWith(totalSeconds: state.totalSeconds + 1);
+      final newSeconds = state.totalSeconds + 1;
+      
+      // Award 10 points for every full hour (3600s)
+      if (newSeconds % 3600 == 0) {
+        ref.read(authProvider.notifier).addPoints(10);
+      }
+      
+      state = state.copyWith(totalSeconds: newSeconds);
       if (state.totalSeconds % 10 == 0) {
         _saveHours();
       }
@@ -117,5 +126,5 @@ class StudyHoursNotifier extends StateNotifier<StudyState> {
 }
 
 final studyHoursProvider = StateNotifierProvider<StudyHoursNotifier, StudyState>((ref) {
-  return StudyHoursNotifier();
+  return StudyHoursNotifier(ref);
 });

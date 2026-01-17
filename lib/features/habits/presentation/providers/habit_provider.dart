@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/data/hive_helper.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 // Habit Model
 class Habit {
@@ -84,9 +85,13 @@ class Habit {
   }
 }
 
+
+
 // State Notifier
 class HabitNotifier extends StateNotifier<List<Habit>> {
-  HabitNotifier() : super([]) {
+  final Ref ref;
+
+  HabitNotifier(this.ref) : super([]) {
     _loadHabits();
   }
 
@@ -130,14 +135,20 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
 
         List<DateTime> newCompletedDays;
         if (isCompleted) {
+          // Undo completion
           newCompletedDays = habit.completedDays
               .where((date) =>
                   !(date.year == now.year &&
                       date.month == now.month &&
                       date.day == now.day))
               .toList();
+          // Deduct points
+          ref.read(authProvider.notifier).deductPoints(5);
         } else {
+          // Complete
           newCompletedDays = [...habit.completedDays, today];
+          // Add points
+          ref.read(authProvider.notifier).addPoints(5);
         }
         return Habit(
             id: habit.id,
@@ -155,5 +166,5 @@ class HabitNotifier extends StateNotifier<List<Habit>> {
 }
 
 final habitProvider = StateNotifierProvider<HabitNotifier, List<Habit>>((ref) {
-  return HabitNotifier();
+  return HabitNotifier(ref);
 });

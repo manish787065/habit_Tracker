@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/data/hive_helper.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
 enum PomodoroPhase { work, breakTime }
 
@@ -46,8 +47,9 @@ class PomodoroState {
 
 class PomodoroNotifier extends StateNotifier<PomodoroState> {
   Timer? _timer;
+  final Ref ref;
 
-  PomodoroNotifier()
+  PomodoroNotifier(this.ref)
       : super(PomodoroState(remainingSeconds: 25 * 60)) {
     _loadSettings();
   }
@@ -106,10 +108,10 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
     _timer?.cancel();
     
     if (state.phase == PomodoroPhase.work) {
-      // Work done, switch to break or finish if all cycles done
-      // However, usually break comes after work.
-      // Requirement: Work -> Break -> Work -> Break (until sets completed)
+      // Work done
+      ref.read(authProvider.notifier).addPoints(5); // Award 5 points/theme items
       
+      // Switch to break or finish
       if (state.currentCycle < state.totalCycles) {
         // Switch to break
         state = state.copyWith(
@@ -125,14 +127,7 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
           }
         });
       } else {
-        // Last work cycle done. Do we do a break? 
-        // "Work -> Break -> Work -> Break" implies yes.
-        // Let's assume after the last work, there is a last break or just finish.
-        // "2 sets = 25 min work -> 5 min break -> repeat twice"
-        // Cycle 1: Work (25) -> Break (5)
-        // Cycle 2: Work (25) -> Break (5)
-        // END.
-        
+        // Last work cycle done. 
         state = state.copyWith(
           phase: PomodoroPhase.breakTime,
           remainingSeconds: state.breakDurationMinutes * 60,
@@ -166,7 +161,6 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
       } else {
         // All cycles done!
         resetTimer();
-        // Ideally show a notification or sound
       }
     }
   }
@@ -179,5 +173,5 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
 }
 
 final pomodoroProvider = StateNotifierProvider<PomodoroNotifier, PomodoroState>((ref) {
-  return PomodoroNotifier();
+  return PomodoroNotifier(ref);
 });

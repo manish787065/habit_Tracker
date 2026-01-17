@@ -6,6 +6,9 @@ import '../../../../core/providers/consistency_provider.dart';
 import '../../../../core/data/hive_helper.dart';
 import '../../../../core/logic/badge_logic.dart';
 import '../../../habits/presentation/providers/habit_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../gamification/presentation/providers/gamification_provider.dart';
+import '../../../gamification/domain/gamification_types.dart';
 
 class DayCounterWidget extends ConsumerWidget {
   const DayCounterWidget({super.key});
@@ -14,6 +17,8 @@ class DayCounterWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch provider to rebuild on toggle
     final dailyLog = ref.watch(consistencyProvider);
+    final user = ref.watch(authProvider);
+    final theme = ref.watch(gamificationProvider);
     
     // Calculate Week: Sunday to Saturday
     final now = DateTime.now();
@@ -66,10 +71,32 @@ class DayCounterWidget extends ConsumerWidget {
                    ),
                  ],
                ),
-                IconButton(
-                  icon: Icon(Icons.calendar_month_rounded, color: AppColors.textSecondary, size: 24),
-                  onPressed: () => _pickDate(context, ref),
-                ),
+               Row(
+                 mainAxisSize: MainAxisSize.min,
+                 children: [
+                   Container(
+                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                     decoration: BoxDecoration(
+                       color: AppColors.primaryAction.withOpacity(0.1),
+                       borderRadius: BorderRadius.circular(20),
+                       border: Border.all(color: AppColors.primaryAction.withOpacity(0.2)),
+                     ),
+                     child: Text(
+                       "${user?.points ?? 0} ${theme.emoji}",
+                       style: TextStyle(
+                         fontSize: 14,
+                         fontWeight: FontWeight.bold,
+                         color: AppColors.primaryAction,
+                       ),
+                     ),
+                   ),
+                   const SizedBox(width: 8),
+                   IconButton(
+                    icon: Icon(Icons.calendar_month_rounded, color: AppColors.textSecondary, size: 24),
+                    onPressed: () => _pickDate(context, ref),
+                   ),
+                 ],
+               ),
               ],
             ),
            const SizedBox(height: 24),

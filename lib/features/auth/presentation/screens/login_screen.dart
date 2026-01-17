@@ -35,6 +35,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
+      bool success = false;
+      String? errorMessage;
+
       if (_isSignUp) {
         if (_selectedProfession == null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -42,25 +45,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
           return;
         }
-        await ref.read(authProvider.notifier).login(
+        success = await ref.read(authProvider.notifier).register(
               _nameController.text.trim(),
               _selectedProfession!,
               _usernameController.text.trim(),
+              _passwordController.text.trim(), // Pass password
             );
+        if (!success) errorMessage = "User already exists";
       } else {
-        // Mock Login - in a real app check password
-        await ref.read(authProvider.notifier).login(
-              "User", // Mock name fetch
-              "Aspirant", // Mock profession fetch
+        success = await ref.read(authProvider.notifier).login(
               _usernameController.text.trim(),
+              _passwordController.text.trim(),
             );
+         if (!success) errorMessage = "Invalid username or password";
       }
       
       if (mounted) {
-         // Force navigation to Home Screen
-         Navigator.of(context).pushReplacement(
-           MaterialPageRoute(builder: (_) => const HomeScreen()),
-         );
+         if (success) {
+             Navigator.of(context).pushReplacement(
+               MaterialPageRoute(builder: (_) => const HomeScreen()),
+             );
+         } else if (errorMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(errorMessage)),
+            );
+         }
       }
     }
   }

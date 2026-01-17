@@ -27,6 +27,8 @@ class StatsScreen extends StatelessWidget {
             const ConsistencyGraphWidget(),
             const SizedBox(height: 16),
             const MonthlyPieChartWidget(),
+            const SizedBox(height: 16),
+            const AppUsageListWidget(),
           ],
         ),
       ),

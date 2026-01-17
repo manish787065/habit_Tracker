@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/hive_helper.dart';
+import '../../features/auth/presentation/providers/auth_provider.dart';
 
 class DailyLog {
   final bool isConsistent;
@@ -16,7 +17,9 @@ class DailyLog {
 }
 
 class ConsistencyNotifier extends StateNotifier<DailyLog> {
-  ConsistencyNotifier() : super(DailyLog(isConsistent: false, rating: 0)) {
+  final Ref ref;
+
+  ConsistencyNotifier(this.ref) : super(DailyLog(isConsistent: false, rating: 0)) {
     _loadTodayLog();
   }
 
@@ -35,8 +38,18 @@ class ConsistencyNotifier extends StateNotifier<DailyLog> {
     final today = DateTime.now().toIso8601String().split('T')[0];
     final newValue = !state.isConsistent;
     
+    // Save to Hive
     await box.put('consistency_$today', newValue);
+    
+    // Update local state
     state = state.copyWith(isConsistent: newValue);
+    
+    // Update Points
+    if (newValue) {
+       ref.read(authProvider.notifier).addPoints(10);
+    } else {
+       ref.read(authProvider.notifier).deductPoints(10);
+    }
   }
 
   Future<void> setRating(int value) async {
@@ -49,5 +62,5 @@ class ConsistencyNotifier extends StateNotifier<DailyLog> {
 }
 
 final consistencyProvider = StateNotifierProvider<ConsistencyNotifier, DailyLog>((ref) {
-  return ConsistencyNotifier();
+  return ConsistencyNotifier(ref);
 });
