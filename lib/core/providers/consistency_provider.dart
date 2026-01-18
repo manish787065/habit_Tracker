@@ -46,9 +46,9 @@ class ConsistencyNotifier extends StateNotifier<DailyLog> {
     
     // Update Points
     if (newValue) {
-       ref.read(authProvider.notifier).addPoints(10);
+       ref.read(authProvider.notifier).addPoints(5);
     } else {
-       ref.read(authProvider.notifier).deductPoints(10);
+       ref.read(authProvider.notifier).deductPoints(5);
     }
   }
 

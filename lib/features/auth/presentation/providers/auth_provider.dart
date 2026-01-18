@@ -8,6 +8,8 @@ class User {
   final String username;
   final String password;
   final int points;
+  final int dailyPoints;
+  final String? lastActiveDate;
 
   User({
     required this.name,
@@ -15,6 +17,8 @@ class User {
     required this.username,
     required this.password,
     this.points = 0,
+    this.dailyPoints = 0,
+    this.lastActiveDate,
   });
 
   factory User.fromMap(Map<dynamic, dynamic> map) {
@@ -24,6 +28,8 @@ class User {
       username: map['username'] ?? '',
       password: map['password'] ?? '',
       points: map['points'] ?? 0,
+      dailyPoints: map['dailyPoints'] ?? 0,
+      lastActiveDate: map['lastActiveDate'],
     );
   }
 
@@ -34,6 +40,8 @@ class User {
       'username': username,
       'password': password,
       'points': points,
+      'dailyPoints': dailyPoints,
+      'lastActiveDate': lastActiveDate,
     };
   }
   
@@ -43,6 +51,8 @@ class User {
     String? username,
     String? password,
     int? points,
+    int? dailyPoints,
+    String? lastActiveDate,
   }) {
     return User(
       name: name ?? this.name,
@@ -50,6 +60,8 @@ class User {
       username: username ?? this.username,
       password: password ?? this.password,
       points: points ?? this.points,
+      dailyPoints: dailyPoints ?? this.dailyPoints,
+      lastActiveDate: lastActiveDate ?? this.lastActiveDate,
     );
   }
 }
@@ -66,7 +78,21 @@ class AuthNotifier extends StateNotifier<User?> {
       final userData = box.get('currentUser');
       if (userData != null) {
         state = User.fromMap(Map<String, dynamic>.from(userData));
+        _checkDailyReset();
       }
+    }
+  }
+
+  void _checkDailyReset() {
+    if (state == null) return;
+    
+    final now = DateTime.now();
+    final todayStr = "${now.year}-${now.month}-${now.day}";
+    
+    if (state!.lastActiveDate != todayStr) {
+      // It's a new day (or first run), reset daily points
+      final updatedUser = state!.copyWith(dailyPoints: 0, lastActiveDate: todayStr);
+      _saveUser(updatedUser);
     }
   }
 
@@ -78,12 +104,17 @@ class AuthNotifier extends StateNotifier<User?> {
       return false; // User already exists
     }
 
+    final now = DateTime.now();
+    final todayStr = "${now.year}-${now.month}-${now.day}";
+
     final newUser = User(
       name: name, 
       profession: profession, 
       username: username,
       password: password,
       points: 0,
+      dailyPoints: 0,
+      lastActiveDate: todayStr,
     );
     
     await box.put(userKey, newUser.toMap());
@@ -104,6 +135,7 @@ class AuthNotifier extends StateNotifier<User?> {
       if (user.password == password) {
         await box.put('currentUser', user.toMap());
         state = user;
+        _checkDailyReset();
         return true;
       }
     }
@@ -124,16 +156,33 @@ class AuthNotifier extends StateNotifier<User?> {
   
   Future<void> addPoints(int amount) async {
     if (state == null) return;
-    final updatedUser = state!.copyWith(points: state!.points + amount);
+    _checkDailyReset(); // Ensure day is correct before adding
+    
+    final updatedUser = state!.copyWith(
+      points: state!.points + amount,
+      dailyPoints: state!.dailyPoints + amount,
+    );
     await _saveUser(updatedUser);
   }
   
   Future<void> deductPoints(int amount) async {
     if (state == null) return;
+    _checkDailyReset(); // Ensure day is correct
+    
     int newPoints = state!.points - amount;
     if (newPoints < 0) newPoints = 0;
+
+    int newDailyPoints = state!.dailyPoints - amount;
+    // Don't let daily points go below 0? Or allow it? 
+    // Usually daily score shouldn't be negative unless penalizing current day's actions.
+    // If user unchecks a habit from yesterday, should it affect today's daily score?
+    // Probably yes, to prevent gaming. But maybe floor at 0.
+    if (newDailyPoints < 0) newDailyPoints = 0;
     
-    final updatedUser = state!.copyWith(points: newPoints);
+    final updatedUser = state!.copyWith(
+      points: newPoints,
+      dailyPoints: newDailyPoints
+    );
     await _saveUser(updatedUser);
   }
   

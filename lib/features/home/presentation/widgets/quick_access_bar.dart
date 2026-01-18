@@ -146,7 +146,7 @@ class _QuickAccessBarState extends State<QuickAccessBar> with SingleTickerProvid
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+                color: isSelected ? (item["color"] as Color) : AppColors.textSecondary,
                 fontFamily: Theme.of(context).textTheme.bodyLarge?.fontFamily,
               ),
               child: Text(item["label"] as String),

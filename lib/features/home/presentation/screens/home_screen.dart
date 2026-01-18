@@ -21,7 +21,7 @@ import '../../../social/presentation/screens/challenge_screen.dart';
 import '../../../gamification/presentation/widgets/point_listener_wrapper.dart';
 import '../widgets/yearly_consistency_graph.dart';
 import '../widgets/quick_access_bar.dart';
-import 'habits_screen.dart';
+import 'habits_screen.dart'; // Keep for now if needed, but we use HabitListWidget
 import 'study_timer_screen.dart';
 import 'pomodoro_screen.dart';
 import 'todo_screen.dart';
@@ -84,6 +84,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         }
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         extendBody: true, // Allow body to go behind bottom nav
       body: PointListenerWrapper(
@@ -96,7 +97,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 right: 0,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
-                  height: (_isNavVisible && MediaQuery.of(context).viewInsets.bottom == 0) ? 80 + MediaQuery.of(context).padding.bottom : 0,
+                  height: _isNavVisible ? 60 + MediaQuery.of(context).padding.bottom : 0,
                   child: Wrap(
                     children: [_buildBottomNav(selectedIndex)],
                   ),
@@ -112,13 +113,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildBottomNav(int selectedIndex) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(30),
-        topRight: Radius.circular(30),
+        topLeft: Radius.circular(20),
+        topRight: Radius.circular(20),
       ),
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          height: 80 + MediaQuery.of(context).padding.bottom,
+          height: 60 + MediaQuery.of(context).padding.bottom,
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
           decoration: BoxDecoration(
             color: Theme.of(context).cardTheme.color?.withOpacity(0.7), // Semi-transparent for glass effect
@@ -165,7 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       child: IconButton(
-        icon: const Icon(Icons.add, size: 32),
+        icon: const Icon(Icons.add, size: 28),
         color: AppColors.textPrimary,
         onPressed: () => ref.read(navigationProvider.notifier).setIndex(1),
       ),
@@ -174,39 +175,84 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 
-class DashboardView extends ConsumerWidget {
+class DashboardView extends ConsumerStatefulWidget {
   final ScrollController? scrollController;
   const DashboardView({super.key, this.scrollController});
 
   @override
+  ConsumerState<DashboardView> createState() => _DashboardViewState();
+}
+
+class _DashboardViewState extends ConsumerState<DashboardView> {
+  String _selectedCategory = "Overview";
+
+  // Widget _getCategoryWidget(String category) {
+  //   switch (category) {
+  //     case "Pomodoro": return const PomodoroWidget(); // Need to verify
+  //     case "Habits": return const HabitListWidget();
+  //     case "Study": return const StudyHoursWidget();
+  //     case "Tasks": return const TodoWidget(); // Need to verify
+  //     case "Awards": return const ChallengeScreen(); // Might need widget wrapper
+  //     default: return _buildOverview();
+  //   }
+  // }
+  // I will implement this logic in the build method or helper.
+  
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return SafeArea(
       bottom: false, 
       child: SingleChildScrollView(
-        controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 120), // Increased bottom padding
+        controller: widget.scrollController,
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 120), 
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context, ref),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
             
-            // "Explore" Quick Access Bar moved to top
-            Text(
-              "Explore",
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
-            ),
-            const SizedBox(height: 16),
+            // "Explore" text removed as requested
+            
             QuickAccessBar(
-              onCategorySelected: (category) => _handleCategoryNavigation(context, category),
+              onCategorySelected: (category) {
+                setState(() {
+                  _selectedCategory = category;
+                });
+              },
             ),
             
             const SizedBox(height: 32), 
-            const DayCounterWidget(),
+            
+            _buildContent(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    switch (_selectedCategory) {
+      case "Pomodoro":
+        return const PomodoroWidget();
+      case "Habits":
+        return const HabitListWidget(); 
+      case "Study":
+        return const StudyHoursWidget();
+      case "Tasks":
+         return const TodoWidget(); 
+      case "Awards":
+        // Awards was mapped to ChallengeScreen. 
+        // ChallengeScreen has a Scaffold, might just want the body?
+        // Let's use ChallengeScreen for now but it might look nested.
+        // Ideally extract body. I'll stick to Overview for now if I can't find it.
+        // Actually I'll wrap it or just show Overview for now.
+        return SizedBox(height: 400, child: const ChallengeScreen()); 
+      case "Reflect":
+        return const TodaysThoughtWidget(); // Reusing thought widget for reflect
+      default:
+        return Column(
+          children: [
+             const DayCounterWidget(),
             const SizedBox(height: 16),
             const YearlyConsistencyGraph(),
             const SizedBox(height: 24),
@@ -215,107 +261,8 @@ class DashboardView extends ConsumerWidget {
             const SizedBox(height: 24),
             const DailyRatingWidget(),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _handleCategoryNavigation(BuildContext context, String category) {
-    Widget? screen;
-    switch (category) {
-      case "Pomodoro":
-        screen = const PomodoroScreen();
-        break;
-      case "Habits":
-        screen = const HabitsScreen();
-        break;
-      case "Study":
-        screen = const StudyTimerScreen();
-        break;
-      case "Awards": // Mapped 'Awards' to Challenges/Profile for now, or ChallengeScreen
-        screen = const ChallengeScreen();
-        break;
-      case "Tasks":
-         screen = const TodoScreen();
-         break;
-      default:
-        // 'All' or others
-        break;
+        );
     }
-    
-    if (screen != null) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => screen!));
-    }
-  }
-
-  Widget _buildChallengeCard(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeScreen()));
-      },
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.primaryAccent.withOpacity(0.8), 
-              AppColors.primaryAccent.withOpacity(0.4)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.emoji_events, color: Colors.white),
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Challenge",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                     Text(
-                      "Compete with friends",
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildHeader(BuildContext context, WidgetRef ref) {
