@@ -8,7 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../stats/presentation/screens/stats_screen.dart';
 import '../../../habits/presentation/screens/add_habit_screen.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../profile/presentation/screens/profile_screen.dart';
+import '../../../profile/presentation/widgets/settings_widget.dart';
 import '../../../../core/providers/navigation_provider.dart';
 import '../widgets/day_counter_widget.dart';
 import '../widgets/study_hours_widget.dart';
@@ -20,11 +20,9 @@ import '../../../pomodoro/presentation/widgets/pomodoro_widget.dart';
 import '../../../social/presentation/screens/challenge_screen.dart';
 import '../../../gamification/presentation/widgets/point_listener_wrapper.dart';
 import '../widgets/yearly_consistency_graph.dart';
-import '../widgets/quick_access_bar.dart';
-import 'habits_screen.dart'; // Keep for now if needed, but we use HabitListWidget
-import 'study_timer_screen.dart';
 import 'pomodoro_screen.dart';
 import 'todo_screen.dart';
+import '../widgets/main_drawer.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -42,23 +40,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    _scrollController.addListener(_onScroll);
+    // Auto-hide listener removed for stability
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
-      if (_isNavVisible) setState(() => _isNavVisible = false);
-    } else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
-      if (!_isNavVisible) setState(() => _isNavVisible = true);
-    }
-  }
+  // _onScroll removed
+
 
   @override
   Widget build(BuildContext context) {
@@ -85,27 +77,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
+        extendBody: true,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        extendBody: true, // Allow body to go behind bottom nav
-      body: PointListenerWrapper(
-          child: Stack(
-            children: [
-              pages[selectedIndex],
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  height: _isNavVisible ? 60 + MediaQuery.of(context).padding.bottom : 0,
-                  child: Wrap(
-                    children: [_buildBottomNav(selectedIndex)],
-                  ),
-                ),
-              ),
-            ],
-          ),
+        drawer: const MainDrawer(),
+        body: PointListenerWrapper(
+          child: pages[selectedIndex],
         ),
+        bottomNavigationBar: _buildBottomNav(selectedIndex),
       ),
     );
   }
@@ -133,9 +111,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavIcon(Icons.home_rounded, 0, selectedIndex),
-              _buildAddButton(),
-              _buildNavIcon(Icons.bar_chart_rounded, 2, selectedIndex),
+              _buildNavIcon(Icons.home_rounded, "Home", 0, selectedIndex),
+              _buildAddButton(selectedIndex),
+              _buildNavIcon(Icons.bar_chart_rounded, "Progress", 2, selectedIndex),
             ],
           ),
         ),
@@ -143,32 +121,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildNavIcon(IconData icon, int index, int selectedIndex) {
+  Widget _buildNavIcon(IconData icon, String label, int index, int selectedIndex) {
     final isSelected = selectedIndex == index;
-    return IconButton(
-      icon: Icon(icon, size: 28),
-      color: isSelected ? Theme.of(context).colorScheme.primary : AppColors.textSecondary,
-      onPressed: () => ref.read(navigationProvider.notifier).setIndex(index),
+    return GestureDetector(
+      onTap: () {
+        ref.read(navigationProvider.notifier).setIndex(index);
+        if (index == 0) {
+          ref.read(dashboardCategoryProvider.notifier).state = "Home";
+        }
+      },
+      child: Container(
+        color: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: isSelected ? Theme.of(context).colorScheme.primary : AppColors.textSecondary,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Theme.of(context).colorScheme.primary : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildAddButton() {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.primaryAction,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryAction.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: IconButton(
-        icon: const Icon(Icons.add, size: 28),
-        color: AppColors.textPrimary,
-        onPressed: () => ref.read(navigationProvider.notifier).setIndex(1),
+  Widget _buildAddButton(int selectedIndex) {
+    final isSelected = selectedIndex == 1;
+    return GestureDetector(
+      onTap: () => ref.read(navigationProvider.notifier).setIndex(1),
+      child: Container(
+        color: Colors.transparent,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primaryAction,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryAction.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.add, size: 20, color: Colors.white),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              "New Habit",
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Theme.of(context).colorScheme.primary : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -184,22 +208,10 @@ class DashboardView extends ConsumerStatefulWidget {
 }
 
 class _DashboardViewState extends ConsumerState<DashboardView> {
-  String _selectedCategory = "Overview";
-
-  // Widget _getCategoryWidget(String category) {
-  //   switch (category) {
-  //     case "Pomodoro": return const PomodoroWidget(); // Need to verify
-  //     case "Habits": return const HabitListWidget();
-  //     case "Study": return const StudyHoursWidget();
-  //     case "Tasks": return const TodoWidget(); // Need to verify
-  //     case "Awards": return const ChallengeScreen(); // Might need widget wrapper
-  //     default: return _buildOverview();
-  //   }
-  // }
-  // I will implement this logic in the build method or helper.
-  
   @override
   Widget build(BuildContext context) {
+    final selectedCategory = ref.watch(dashboardCategoryProvider);
+    
     return SafeArea(
       bottom: false, 
       child: SingleChildScrollView(
@@ -209,29 +221,17 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context, ref),
-            const SizedBox(height: 12),
-            
-            // "Explore" text removed as requested
-            
-            QuickAccessBar(
-              onCategorySelected: (category) {
-                setState(() {
-                  _selectedCategory = category;
-                });
-              },
-            ),
-            
             const SizedBox(height: 32), 
             
-            _buildContent(),
+            _buildContent(selectedCategory),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildContent() {
-    switch (_selectedCategory) {
+  Widget _buildContent(String category) {
+    switch (category) {
       case "Pomodoro":
         return const PomodoroWidget();
       case "Habits":
@@ -240,7 +240,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
         return const StudyHoursWidget();
       case "Tasks":
          return const TodoWidget(); 
-      case "Awards":
+      case "Challenge":
         // Awards was mapped to ChallengeScreen. 
         // ChallengeScreen has a Scaffold, might just want the body?
         // Let's use ChallengeScreen for now but it might look nested.
@@ -249,7 +249,10 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
         return SizedBox(height: 400, child: const ChallengeScreen()); 
       case "Reflect":
         return const TodaysThoughtWidget(); // Reusing thought widget for reflect
+      case "Settings":
+        return const SettingsWidget();
       default:
+        // Case "Home" or anything else
         return Column(
           children: [
              const DayCounterWidget(),
@@ -269,48 +272,39 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     final user = ref.watch(authProvider);
     final greetingName = user?.name ?? "Friend";
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = isDark ? Colors.white : AppColors.textPrimary;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        Row(
           children: [
-            Text(
-              "Hello, $greetingName",
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
-              ),
+            IconButton(
+              icon: Icon(Icons.menu, color: iconColor, size: 28),
+              onPressed: () => Scaffold.of(context).openDrawer(),
             ),
-            const SizedBox(height: 4),
-            Text(
-              "Focus on what matters.",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Hello, $greetingName",
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                Text(
+                  "Focus on what matters.",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isDark ? Colors.white70 : AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-        GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primaryAction, width: 2),
-            ),
-            child: CircleAvatar(
-              backgroundColor: AppColors.background,
-              radius: 22,
-              child: Icon(Icons.person, color: AppColors.textPrimary),
-            ),
-          ),
         ),
       ],
     );

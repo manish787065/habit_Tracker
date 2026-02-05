@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/data/hive_helper.dart';
 import '../../data/todo_model.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class TodoNotifier extends StateNotifier<List<TodoItem>> {
-  TodoNotifier() : super([]) {
+  final Ref ref;
+
+  TodoNotifier(this.ref) : super([]) {
     _loadTodos();
   }
 
@@ -36,7 +39,15 @@ class TodoNotifier extends StateNotifier<List<TodoItem>> {
   Future<void> toggleTodo(String id) async {
     state = state.map((item) {
       if (item.id == id) {
-        return item.copyWith(isCompleted: !item.isCompleted);
+        final isCompleted = !item.isCompleted;
+        
+        if (isCompleted) {
+           ref.read(authProvider.notifier).addPoints(5);
+        } else {
+           ref.read(authProvider.notifier).deductPoints(5);
+        }
+        
+        return item.copyWith(isCompleted: isCompleted);
       }
       return item;
     }).toList();
@@ -57,5 +68,5 @@ class TodoNotifier extends StateNotifier<List<TodoItem>> {
 }
 
 final todoProvider = StateNotifierProvider<TodoNotifier, List<TodoItem>>((ref) {
-  return TodoNotifier();
+  return TodoNotifier(ref);
 });

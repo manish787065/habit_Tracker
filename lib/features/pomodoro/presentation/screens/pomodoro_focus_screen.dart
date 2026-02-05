@@ -22,7 +22,6 @@ class _PomodoroFocusScreenState extends ConsumerState<PomodoroFocusScreen> with 
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _audioPlayer = AudioPlayer();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     // Play sound immediately to confirm start
     _playSound();
   }
@@ -31,7 +30,6 @@ class _PomodoroFocusScreenState extends ConsumerState<PomodoroFocusScreen> with 
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _audioPlayer.dispose();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge); // or SystemUiMode.manual, overlays: SystemUiOverlay.values
     super.dispose();
   }
 

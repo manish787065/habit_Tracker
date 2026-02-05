@@ -54,6 +54,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("New Habit"),

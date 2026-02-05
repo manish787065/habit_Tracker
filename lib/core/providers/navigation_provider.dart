@@ -11,3 +11,5 @@ class NavigationNotifier extends StateNotifier<int> {
 final navigationProvider = StateNotifierProvider<NavigationNotifier, int>((ref) {
   return NavigationNotifier();
 });
+
+final dashboardCategoryProvider = StateProvider<String>((ref) => "Home");
