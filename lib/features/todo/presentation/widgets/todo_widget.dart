@@ -6,7 +6,8 @@ import '../../data/todo_model.dart';
 import '../screens/todo_screen.dart';
 
 class TodoWidget extends ConsumerStatefulWidget {
-  const TodoWidget({super.key});
+  final bool isHome;
+  const TodoWidget({super.key, this.isHome = false});
 
   @override
   ConsumerState<TodoWidget> createState() => _TodoWidgetState();
@@ -80,7 +81,7 @@ class _TodoWidgetState extends ConsumerState<TodoWidget> {
                   Icon(Icons.check_circle_outline_rounded, color: AppColors.secondaryAccent, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    "Tasks",
+                    "Daily Goals",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -101,26 +102,24 @@ class _TodoWidgetState extends ConsumerState<TodoWidget> {
           ),
           const SizedBox(height: 16),
           if (todaysTodos.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Column(
-                  children: [
-                    Icon(Icons.assignment_turned_in_outlined, size: 32, color: AppColors.textSecondary.withOpacity(0.3)),
-                    const SizedBox(height: 8),
-                    Text(
-                      "No tasks yet.",
-                      style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5)),
-                    ),
-                  ],
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.assignment_turned_in_outlined, size: 20, color: AppColors.textSecondary.withOpacity(0.3)),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Set your goals for today...",
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5), fontSize: 13),
+                  ),
+                ],
               ),
             )
           else
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: todaysTodos.length > 3 ? 3 : todaysTodos.length, 
+              itemCount: (widget.isHome && todaysTodos.length > 5) ? 5 : todaysTodos.length, 
               itemBuilder: (context, index) {
                 final todo = todaysTodos[index];
                 return _buildCompactTodoItem(todo);
@@ -131,11 +130,11 @@ class _TodoWidgetState extends ConsumerState<TodoWidget> {
             width: double.infinity,
             child: TextButton.icon(
               onPressed: _showAddDialog,
-              icon: Icon(Icons.add_rounded, color: AppColors.primaryAccent),
-              label: Text("Add New Task", style: TextStyle(color: AppColors.primaryAccent, fontWeight: FontWeight.w600)),
+              icon: Icon(Icons.add_rounded, color: AppColors.primaryAccent, size: 20),
+              label: Text("Add Daily Goal", style: TextStyle(color: AppColors.primaryAccent, fontWeight: FontWeight.w600, fontSize: 13)),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                backgroundColor: AppColors.primaryAccent.withOpacity(0.1),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                backgroundColor: AppColors.primaryAccent.withOpacity(0.08),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
             ),
@@ -148,6 +147,27 @@ class _TodoWidgetState extends ConsumerState<TodoWidget> {
   Widget _buildCompactTodoItem(TodoItem todo) {
     return InkWell(
       onTap: () => ref.read(todoProvider.notifier).toggleTodo(todo.id),
+      onLongPress: () {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: Theme.of(context).cardTheme.color,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text("Delete Goal"),
+            content: Text("Delete '${todo.title}'?"),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+              TextButton(
+                onPressed: () {
+                  ref.read(todoProvider.notifier).deleteTodo(todo.id);
+                  Navigator.pop(context);
+                },
+                child: const Text("Delete", style: TextStyle(color: Colors.redAccent)),
+              ),
+            ],
+          ),
+        );
+      },
       splashColor: Colors.transparent,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6.0),

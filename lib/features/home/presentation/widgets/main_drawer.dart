@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/navigation_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class MainDrawer extends ConsumerWidget {
   const MainDrawer({super.key});
@@ -16,9 +17,9 @@ class MainDrawer extends ConsumerWidget {
       {"label": "Habits", "icon": Icons.check_circle_outline, "color": Colors.green},
       {"label": "Study", "icon": Icons.menu_book_rounded, "color": Colors.blue},
       {"label": "Challenge", "icon": Icons.military_tech_outlined, "color": Colors.purple},
-      {"label": "Tasks", "icon": Icons.task_alt_rounded, "color": Colors.teal},
-      {"label": "Reflect", "icon": Icons.edit_note_rounded, "color": Colors.pink},
+      {"label": "Daily Goals", "icon": Icons.task_alt_rounded, "color": Colors.teal},
       {"label": "Settings", "icon": Icons.settings_outlined, "color": AppColors.primaryAction},
+      {"label": "Logout", "icon": Icons.logout_rounded, "color": Colors.redAccent},
     ];
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -66,13 +67,13 @@ class MainDrawer extends ConsumerWidget {
                     dense: true,
                     leading: Icon(
                       item["icon"], 
-                      color: isSelected ? item["color"] : defaultIconColor,
+                      color: isSelected ? item["color"] : (item["label"] == "Logout" ? Colors.redAccent.withOpacity(0.8) : defaultIconColor),
                       size: 20,
                     ),
                     title: Text(
                       item["label"],
                       style: TextStyle(
-                        color: isSelected ? item["color"] : defaultTextColor,
+                        color: isSelected ? item["color"] : (item["label"] == "Logout" ? Colors.redAccent : defaultTextColor),
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         fontSize: 13,
                       ),
@@ -80,8 +81,12 @@ class MainDrawer extends ConsumerWidget {
                     selected: isSelected,
                     selectedTileColor: AppColors.primaryAction.withOpacity(0.1),
                     onTap: () {
-                      ref.read(dashboardCategoryProvider.notifier).state = item["label"];
-                      Navigator.pop(context);
+                      if (item["label"] == "Logout") {
+                        _showLogoutDialog(context, ref);
+                      } else {
+                        ref.read(dashboardCategoryProvider.notifier).state = item["label"];
+                        Navigator.pop(context);
+                      }
                     },
                   );
                 },
@@ -89,6 +94,34 @@ class MainDrawer extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to logout?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              print("Confirming Logout...");
+              Navigator.pop(context); // Close dialog
+              // We don't necessarily need to pop the drawer manually if the whole HomeScreen
+              // is being removed from the tree by the auth state change.
+              await ref.read(authProvider.notifier).logout();
+              print("Logout called and finished.");
+            },
+            child: const Text("Logout", style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
       ),
     );
   }

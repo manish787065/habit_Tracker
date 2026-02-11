@@ -3,19 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/hive_helper.dart';
 
 class ThemeNotifier extends StateNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.system) {
+  ThemeNotifier() : super(ThemeMode.light) {
     _loadTheme();
   }
 
   void _loadTheme() {
     final box = HiveHelper.settings;
     final savedTheme = box.get('themeMode');
-    if (savedTheme == 'light') {
-      state = ThemeMode.light;
-    } else if (savedTheme == 'dark') {
+    if (savedTheme == 'dark') {
       state = ThemeMode.dark;
-    } else {
+    } else if (savedTheme == 'system') {
       state = ThemeMode.system;
+    } else {
+      // Default to Light even if 'light' is saved or if nothing is saved
+      state = ThemeMode.light;
     }
   }
 

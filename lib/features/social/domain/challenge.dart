@@ -8,6 +8,7 @@ class Challenge {
   final DateTime startTime;
   final DateTime endTime;
   final List<ChallengeParticipant> participants;
+  final List<String> participantIds; // New: For easy Firestore querying
   final String creatorId;
 
   Challenge({
@@ -18,6 +19,7 @@ class Challenge {
     required this.startTime,
     required this.endTime,
     required this.participants,
+    required this.participantIds,
     required this.creatorId,
   });
 
@@ -37,23 +39,23 @@ class Challenge {
       'maxParticipants': maxParticipants,
       'startTime': startTime.toIso8601String(),
       'endTime': endTime.toIso8601String(),
-      'participants': participants.map((e) => e.toMap()).toList(),
+      'participantIds': participantIds,
       'creatorId': creatorId,
+      // Note: participants sub-collection is managed separately for real-time updates
     };
   }
 
-  factory Challenge.fromMap(Map<String, dynamic> map) {
+  factory Challenge.fromMap(Map<String, dynamic> map, {List<ChallengeParticipant> participants = const []}) {
     return Challenge(
-      id: map['id'],
-      title: map['title'],
-      code: map['code'],
-      maxParticipants: map['maxParticipants'],
+      id: map['id'] ?? '',
+      title: map['title'] ?? '',
+      code: map['code'] ?? '',
+      maxParticipants: map['maxParticipants'] ?? 5,
       startTime: DateTime.parse(map['startTime']),
       endTime: DateTime.parse(map['endTime']),
-      participants: (map['participants'] as List)
-          .map((e) => ChallengeParticipant.fromMap(Map<String, dynamic>.from(e)))
-          .toList(),
-      creatorId: map['creatorId'],
+      participants: participants,
+      participantIds: List<String>.from(map['participantIds'] ?? []),
+      creatorId: map['creatorId'] ?? '',
     );
   }
 }

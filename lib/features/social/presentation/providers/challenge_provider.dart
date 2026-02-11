@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/data/hive_helper.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../home/presentation/providers/study_hours_provider.dart';
@@ -26,140 +28,227 @@ class ChallengeState {
 
 class ChallengeNotifier extends StateNotifier<ChallengeState> {
   final Ref ref;
+  final _firestore = FirebaseFirestore.instance;
+  StreamSubscription? _challengesSubscription;
+  final Map<String, StreamSubscription> _participantsSubscriptions = {};
 
   ChallengeNotifier(this.ref) : super(ChallengeState(activeChallenges: [])) {
-    _loadChallenges();
+    _init();
+  }
+
+  void _init() {
+    ref.listen<User?>(authProvider, (previous, next) {
+      if (next == null) {
+        _stopSync();
+        state = state.copyWith(activeChallenges: []);
+      } else {
+        _startSync(next.id);
+      }
+    }, fireImmediately: true);
+
     _listenToStudyHours();
   }
 
-  void _loadChallenges() {
-    final box = HiveHelper.habits;
-    final List<dynamic> raw = box.get('active_challenges', defaultValue: []);
-    final challenges = raw.map((e) => Challenge.fromMap(Map<String, dynamic>.from(e))).toList();
-    state = state.copyWith(activeChallenges: challenges);
+  void _stopSync() {
+    _challengesSubscription?.cancel();
+    for (var sub in _participantsSubscriptions.values) {
+      sub.cancel();
+    }
+    _participantsSubscriptions.clear();
   }
 
-  void _saveChallenges() {
-    final box = HiveHelper.habits;
-    final list = state.activeChallenges.map((e) => e.toMap()).toList();
-    box.put('active_challenges', list);
+  void _startSync(String userId) {
+    _stopSync();
+    _challengesSubscription = _firestore
+        .collection('challenges')
+        .where('participantIds', arrayContains: userId)
+        .snapshots()
+        .listen((challengesSnapshot) {
+      
+      final currentChallenges = challengesSnapshot.docs;
+      
+      // Clean up stale participant listeners
+      final currentIds = currentChallenges.map((doc) => doc.id).toSet();
+      _participantsSubscriptions.removeWhere((id, sub) {
+        if (!currentIds.contains(id)) {
+          sub.cancel();
+          return true;
+        }
+        return false;
+      });
+
+      // Map challenges and start participant listeners for new ones
+      for (var challengeDoc in currentChallenges) {
+        final challengeId = challengeDoc.id;
+        if (!_participantsSubscriptions.containsKey(challengeId)) {
+          _participantsSubscriptions[challengeId] = _firestore
+              .collection('challenges')
+              .doc(challengeId)
+              .collection('participants')
+              .snapshots()
+              .listen((participantsSnapshot) {
+            _updateChallengeWithParticipants(challengeId, participantsSnapshot);
+          });
+        }
+      }
+
+      // Initial state update with basic challenge data (participants might be empty until their listeners fire)
+      final List<Challenge> updatedList = currentChallenges.map((doc) {
+         final existing = state.activeChallenges.firstWhere((c) => c.id == doc.id, 
+            orElse: () => Challenge.fromMap(doc.data() as Map<String, dynamic>));
+         return Challenge.fromMap(doc.data() as Map<String, dynamic>, participants: existing.participants);
+      }).toList();
+      
+      state = state.copyWith(activeChallenges: updatedList);
+    });
+  }
+
+  void _updateChallengeWithParticipants(String challengeId, QuerySnapshot participantsSnapshot) {
+    final participants = participantsSnapshot.docs
+        .map((doc) => ChallengeParticipant.fromMap(doc.data() as Map<String, dynamic>))
+        .toList();
+
+    state = state.copyWith(
+      activeChallenges: state.activeChallenges.map((c) {
+        if (c.id == challengeId) {
+          return Challenge(
+            id: c.id,
+            title: c.title,
+            code: c.code,
+            maxParticipants: c.maxParticipants,
+            startTime: c.startTime,
+            endTime: c.endTime,
+            participants: participants,
+            participantIds: c.participantIds,
+            creatorId: c.creatorId,
+          );
+        }
+        return c;
+      }).toList(),
+    );
   }
 
   void _listenToStudyHours() {
     ref.listen(studyHoursProvider, (previous, next) {
-      if (state.activeChallenges.isEmpty) return;
+      final user = ref.read(authProvider);
+      if (user == null || state.activeChallenges.isEmpty) return;
 
-      final updatedChallenges = state.activeChallenges.map((challenge) {
-        if (!challenge.isActive) return challenge;
-
-        final user = ref.read(authProvider);
-        if (user == null) return challenge;
-
-        final participants = challenge.participants.map((p) {
-          if (p.id == user.username) {
-            return ChallengeParticipant(
-              id: p.id,
-              name: p.name,
-              initialHours: p.initialHours,
-              currentHours: next.totalHours,
-            );
-          }
-          return p;
-        }).toList();
-
-        return Challenge(
-          id: challenge.id,
-          title: challenge.title,
-          code: challenge.code,
-          maxParticipants: challenge.maxParticipants,
-          startTime: challenge.startTime,
-          endTime: challenge.endTime,
-          participants: participants,
-          creatorId: challenge.creatorId,
-        );
-      }).toList();
-
-      state = state.copyWith(activeChallenges: updatedChallenges);
-      _saveChallenges();
+      for (var challenge in state.activeChallenges) {
+        if (challenge.isActive) {
+          _firestore
+              .collection('challenges')
+              .doc(challenge.id)
+              .collection('participants')
+              .doc(user.id) // Use UID here
+              .update({'currentHours': next.totalHours});
+        }
+      }
     });
   }
 
-  void createChallenge(String title, int participants, Duration duration) {
+  Future<void> createChallenge(String title, int participants, Duration duration) async {
     final user = ref.read(authProvider);
     if (user == null) return;
 
     final studyState = ref.read(studyHoursProvider);
-    
+    final challengeId = DateTime.now().millisecondsSinceEpoch.toString();
+    final code = Challenge.generateCode();
+
     final newChallenge = Challenge(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: challengeId,
       title: title,
-      code: Challenge.generateCode(),
+      code: code,
       maxParticipants: participants,
       startTime: DateTime.now(),
       endTime: DateTime.now().add(duration),
-      participants: [
-        ChallengeParticipant(
-          id: user.username,
-          name: user.name,
-          initialHours: studyState.totalHours,
-          currentHours: studyState.totalHours,
-        )
-      ],
-      creatorId: user.username,
+      participants: [], // Will be synced
+      participantIds: [user.id],
+      creatorId: user.id,
     );
 
-    state = state.copyWith(activeChallenges: [...state.activeChallenges, newChallenge]);
-    _saveChallenges();
-  }
-
-  bool joinChallenge(String code) {
-    final user = ref.read(authProvider);
-    if (user == null) return false;
-
-    final studyState = ref.read(studyHoursProvider);
-
-    int index = state.activeChallenges.indexWhere((c) => c.code.toUpperCase() == code.toUpperCase());
-    if (index == -1) return false;
-
-    var challenge = state.activeChallenges[index];
+    await _firestore.collection('challenges').doc(challengeId).set(newChallenge.toMap());
     
-    // Check if user already joined
-    if (challenge.participants.any((p) => p.id == user.username)) return true;
-
-    // Check capacity
-    if (challenge.participants.length >= challenge.maxParticipants) return false;
-
-    final newParticipant = ChallengeParticipant(
-      id: user.username,
+    // Add creator as first participant
+    final participant = ChallengeParticipant(
+      id: user.id,
       name: user.name,
       initialHours: studyState.totalHours,
       currentHours: studyState.totalHours,
     );
 
-    final updatedParticipants = [...challenge.participants, newParticipant];
-    final updatedChallenge = Challenge(
-      id: challenge.id,
-      title: challenge.title,
-      code: challenge.code,
-      maxParticipants: challenge.maxParticipants,
-      startTime: challenge.startTime,
-      endTime: challenge.endTime,
-      participants: updatedParticipants,
-      creatorId: challenge.creatorId,
+    await _firestore
+        .collection('challenges')
+        .doc(challengeId)
+        .collection('participants')
+        .doc(user.id)
+        .set(participant.toMap());
+  }
+
+  Future<bool> joinChallenge(String code) async {
+    final user = ref.read(authProvider);
+    if (user == null) return false;
+
+    final studyState = ref.read(studyHoursProvider);
+
+    // Find challenge by code
+    final query = await _firestore
+        .collection('challenges')
+        .where('code', isEqualTo: code.toUpperCase())
+        .limit(1)
+        .get();
+
+    if (query.docs.isEmpty) return false;
+    
+    final doc = query.docs.first;
+    final challenge = Challenge.fromMap(doc.data());
+
+    if (challenge.participantIds.contains(user.id)) return true;
+    if (challenge.participantIds.length >= challenge.maxParticipants) return false;
+
+    // Join
+    final newParticipant = ChallengeParticipant(
+      id: user.id,
+      name: user.name,
+      initialHours: studyState.totalHours,
+      currentHours: studyState.totalHours,
     );
 
-    final newList = [...state.activeChallenges];
-    newList[index] = updatedChallenge;
-    state = state.copyWith(activeChallenges: newList);
-    _saveChallenges();
+    await _firestore.runTransaction((transaction) async {
+      transaction.update(doc.reference, {
+        'participantIds': FieldValue.arrayUnion([user.id])
+      });
+      transaction.set(
+        doc.reference.collection('participants').doc(user.id),
+        newParticipant.toMap(),
+      );
+    });
+
     return true;
   }
 
-  void deleteChallenge(String id) {
-    state = state.copyWith(
-      activeChallenges: state.activeChallenges.where((c) => c.id != id).toList(),
-    );
-    _saveChallenges();
+  Future<void> deleteChallenge(String id) async {
+    final user = ref.read(authProvider);
+    if (user == null) return;
+
+    // Only creator can delete for now, or just remove self?
+    // Requirement says "delete", so let's assume full deletion for simplicity if creator
+    final challenge = state.activeChallenges.firstWhere((c) => c.id == id);
+    if (challenge.creatorId == user.id) {
+        await _firestore.collection('challenges').doc(id).delete();
+        // Sub-collections aren't deleted automatically in Firestore, but they won't show up in queries
+    } else {
+        // Just leave
+        await _firestore.collection('challenges').doc(id).update({
+            'participantIds': FieldValue.arrayRemove([user.id])
+        });
+        await _firestore.collection('challenges').doc(id).collection('participants').doc(user.id).delete();
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopSync();
+    super.dispose();
   }
 }
 

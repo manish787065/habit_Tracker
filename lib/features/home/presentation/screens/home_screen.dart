@@ -13,15 +13,14 @@ import '../../../../core/providers/navigation_provider.dart';
 import '../widgets/day_counter_widget.dart';
 import '../widgets/study_hours_widget.dart';
 import '../widgets/habit_list_widget.dart';
-import '../widgets/daily_rating_widget.dart';
-import '../widgets/todays_thought_widget.dart';
+import '../widgets/habit_list_widget.dart';
 import '../../../todo/presentation/widgets/todo_widget.dart';
 import '../../../pomodoro/presentation/widgets/pomodoro_widget.dart';
 import '../../../social/presentation/screens/challenge_screen.dart';
 import '../../../gamification/presentation/widgets/point_listener_wrapper.dart';
 import '../widgets/yearly_consistency_graph.dart';
 import 'pomodoro_screen.dart';
-import 'todo_screen.dart';
+import 'shining_off_screen.dart';
 import '../widgets/main_drawer.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -238,17 +237,10 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
         return const HabitListWidget(); 
       case "Study":
         return const StudyHoursWidget();
-      case "Tasks":
+      case "Daily Goals":
          return const TodoWidget(); 
       case "Challenge":
-        // Awards was mapped to ChallengeScreen. 
-        // ChallengeScreen has a Scaffold, might just want the body?
-        // Let's use ChallengeScreen for now but it might look nested.
-        // Ideally extract body. I'll stick to Overview for now if I can't find it.
-        // Actually I'll wrap it or just show Overview for now.
         return SizedBox(height: 400, child: const ChallengeScreen()); 
-      case "Reflect":
-        return const TodaysThoughtWidget(); // Reusing thought widget for reflect
       case "Settings":
         return const SettingsWidget();
       default:
@@ -257,15 +249,69 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
           children: [
              const DayCounterWidget(),
             const SizedBox(height: 16),
-            const YearlyConsistencyGraph(),
+            const YearlyConsistencyGraph(), // Monthly Progress
             const SizedBox(height: 24),
             
-            const TodaysThoughtWidget(),
+            const TodoWidget(isHome: true), // Daily Tasks
             const SizedBox(height: 24),
-            const DailyRatingWidget(),
+            
+            const HabitListWidget(showTitle: true), // Ongoing Habits
+            const SizedBox(height: 32),
+            
+            _buildShiningOffButton(context),
+            const SizedBox(height: 16),
           ],
         );
     }
+  }
+
+  Widget _buildShiningOffButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ShiningOffScreen()),
+          );
+        },
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primaryAction,
+                AppColors.primaryAction.withOpacity(0.8),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryAction.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.wb_sunny_rounded, color: Colors.white, size: 24),
+              const SizedBox(width: 12),
+              const Text(
+                "Shining Off",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildHeader(BuildContext context, WidgetRef ref) {

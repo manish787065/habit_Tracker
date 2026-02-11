@@ -18,6 +18,8 @@ class _ChallengeScreenState extends ConsumerState<ChallengeScreen> {
 
   void _showCreateChallengeDialog() {
     final titleController = TextEditingController();
+    final participantsController = TextEditingController(text: "2");
+    final durationController = TextEditingController(text: "24");
     int participants = 2;
     int durationHours = 24;
 
@@ -40,39 +42,115 @@ class _ChallengeScreenState extends ConsumerState<ChallengeScreen> {
                     hintText: "e.g., Study Marathon",
                   ),
                 ),
-                const SizedBox(height: 20),
-                Text("Participants: $participants", style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
-                Slider(
-                  value: participants.toDouble(),
-                  min: 2,
-                  max: 10,
-                  divisions: 8,
-                  onChanged: (val) => setDialogState(() => participants = val.toInt()),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Participants", style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+                    SizedBox(
+                      width: 60,
+                      child: TextField(
+                        controller: participantsController,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                        onChanged: (val) {
+                          final count = int.tryParse(val);
+                          if (count != null && count >= 2 && count <= 100) {
+                            setDialogState(() => participants = count);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 20),
-                Text("Duration: ${durationHours}h", style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
                 Slider(
-                  value: durationHours.toDouble(),
+                  value: participants.toDouble().clamp(2.0, 20.0),
+                  min: 2,
+                  max: 20,
+                  divisions: 18,
+                  onChanged: (val) {
+                    setDialogState(() {
+                      participants = val.toInt();
+                      participantsController.text = participants.toString();
+                    });
+                  },
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Duration (Hours)", style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+                    SizedBox(
+                      width: 60,
+                      child: TextField(
+                        controller: durationController,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                        onChanged: (val) {
+                          final hours = int.tryParse(val);
+                          if (hours != null && hours >= 1) {
+                            setDialogState(() => durationHours = hours);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: durationHours.toDouble().clamp(1.0, 168.0),
                   min: 1,
-                  max: 168, // 1 week
+                  max: 168,
                   divisions: 167,
-                  onChanged: (val) => setDialogState(() => durationHours = val.toInt()),
+                  onChanged: (val) {
+                    setDialogState(() {
+                      durationHours = val.toInt();
+                      durationController.text = durationHours.toString();
+                    });
+                  },
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
             ElevatedButton(
               onPressed: () {
-                if (titleController.text.trim().isNotEmpty) {
-                  ref.read(challengeProvider.notifier).createChallenge(
-                    titleController.text.trim(),
-                    participants,
-                    Duration(hours: durationHours),
+                final cleanedTitle = titleController.text.trim();
+                final finalParticipants = int.tryParse(participantsController.text) ?? participants;
+                final finalDuration = int.tryParse(durationController.text) ?? durationHours;
+
+                if (cleanedTitle.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please enter a challenge title")),
                   );
-                  Navigator.pop(context);
+                  return;
                 }
+
+                if (finalParticipants < 2) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("At least 2 participants required")),
+                  );
+                  return;
+                }
+
+                if (finalDuration < 1) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Duration must be at least 1 hour")),
+                  );
+                  return;
+                }
+
+                ref.read(challengeProvider.notifier).createChallenge(
+                  cleanedTitle,
+                  finalParticipants,
+                  Duration(hours: finalDuration),
+                );
+                Navigator.pop(context);
               },
               child: const Text("Create"),
             ),
@@ -100,13 +178,15 @@ class _ChallengeScreenState extends ConsumerState<ChallengeScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(
-            onPressed: () {
-              final success = ref.read(challengeProvider.notifier).joinChallenge(_joinCodeController.text.trim());
-              if (success) {
-                Navigator.pop(context);
-                _joinCodeController.clear();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid code or challenge full")));
+            onPressed: () async {
+              final success = await ref.read(challengeProvider.notifier).joinChallenge(_joinCodeController.text.trim());
+              if (mounted) {
+                if (success) {
+                  Navigator.pop(context);
+                  _joinCodeController.clear();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid code or challenge full")));
+                }
               }
             },
             child: const Text("Join"),
@@ -231,7 +311,7 @@ class _ChallengeScreenState extends ConsumerState<ChallengeScreen> {
     final hours = timeLeft.inHours;
     final mins = timeLeft.inMinutes % 60;
     final currentUser = ref.watch(authProvider);
-    final isCreator = challenge.creatorId == currentUser?.username;
+    final isCreator = challenge.creatorId == currentUser?.id;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -328,7 +408,7 @@ class _ChallengeScreenState extends ConsumerState<ChallengeScreen> {
           const Divider(height: 32),
           ...challenge.participants.asMap().entries.map((entry) {
             final p = entry.value;
-            final isMe = p.id == currentUser?.username;
+            final isMe = p.id == currentUser?.id;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(

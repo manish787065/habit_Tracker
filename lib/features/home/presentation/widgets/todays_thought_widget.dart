@@ -56,7 +56,7 @@ class _TodaysThoughtWidgetState extends ConsumerState<TodaysThoughtWidget> {
                ),
               const SizedBox(width: 12),
                Text(
-                "Daily Reflection",
+                "Life Lesson",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
